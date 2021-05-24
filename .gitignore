@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# CSV file
+*.csv
+
+# WandB
+wandb/
+
+# VSCode
+.vscode/
