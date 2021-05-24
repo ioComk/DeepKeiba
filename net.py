@@ -4,7 +4,7 @@ from torch import nn
 INPUT_UNITS  = 270
 HIDDEN_UNITS1 = 128
 HIDDEN_UNITS2 = 32
-OUT_UNITS = 54
+OUT_UNITS = 18
 
 class Model(nn.Module):
 
@@ -35,7 +35,5 @@ class Model(nn.Module):
     def forward(self, x):
         
         y = self.dense(x)
-
-        y = y.view(-1, 3, 18)
 
         return y

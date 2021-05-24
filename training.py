@@ -18,7 +18,6 @@ PATIENCE  = 20
 
 # Training
 def train_step(epochs, data_loader, model, optimizer, run):
-# def train_step(epochs, data_loader, model, optimizer):
 
     running_loss = 0.0
     check_interval = 5
@@ -36,9 +35,7 @@ def train_step(epochs, data_loader, model, optimizer, run):
         output = model(df)
 
         # loss計算
-        loss = 0
-        for idx in range(3):
-            loss += criterion(output[:, idx, :], label[:, idx])
+        loss = criterion(output, label)
 
         loss.backward()
         optimizer.step()
@@ -48,55 +45,39 @@ def train_step(epochs, data_loader, model, optimizer, run):
         # check_interval毎にTraining lossを表示(ログに追加)
         if (i+1) % check_interval == 0:
             check_loss(epochs, i, check_interval, running_loss, run)
-            # check_loss(epochs, i, check_interval, running_loss)
             running_loss = 0.0
         
 # Validation
 def val_step(model, data_loader, early_stopping):
 
-    running_loss = 0.0
+    acc_sum = 0.0
     model.eval()
 
     with t.no_grad():
         for i, data in enumerate(data_loader):
             
             df, label = [i.to(device) for i in data]
-
             label = label.long()
 
             output = model(df)
+            _, predicted = t.max(output.data, 1)
 
-            # loss計算
-            loss = 0
-            for idx in range(3):
-                loss += criterion(output[:, idx, :], label[:, idx])
+            acc_sum += (predicted == label).sum().item() / len(label)
 
-            running_loss += loss.item()
+        acc = acc_sum / (i+1)
+        early_stopping(acc, model)
 
-        avg_loss = running_loss / (i+1)
-        early_stopping(avg_loss, model)
+        print('Accuracy: ', acc)
 
-        print('------------------------------------------')
-        print('Validation loss: ', avg_loss)
-
-    # print(t.argmax(output, dim=2))
-    # print(label)
-
-    return avg_loss
+    return acc
 
 def objective(trial):
-# def main():
 
     # ハイパーパラメータ
     batch_size = trial.suggest_int('batch_size', 16, 32)
     dropout = trial.suggest_float('dropout', 0.1, 0.5)
-    # optimizer_name = trial.suggest_categorical("optimizer", ['Adam', 'RAdam'])
+    optimizer_name = trial.suggest_categorical("optimizer", ['Adam', 'RAdam', 'SGD'])
     lr = trial.suggest_float('lr', 1e-5, 1e-2)
-
-    # batch_size     = 1
-    # dropout        = 0
-    optimizer_name = 'Adam'
-    # lr             = 0.00001
 
     config = dict(
         batch = batch_size,
@@ -128,13 +109,11 @@ def objective(trial):
     best_val_score = np.Inf
 
     early_stopping = EarlyStopping(PATIENCE, verbose=True, out_dir=out_dir)
-    # early_stopping = EarlyStopping(PATIENCE, verbose=True)
 
     #####################    DNN Training     #########################
     for epoch in range(MAX_EPOCH):
 
         train_step(epoch, train_loader, model, optimizer, run)
-        # train_step(epoch, train_loader, model, optimizer)
         val_loss = val_step(model, val_loader, early_stopping)
 
         # update log
@@ -166,16 +145,14 @@ if __name__ == "__main__":
     print('Device:', device)
 
     # Loss function
-    # criterion = nn.MSELoss()
     criterion = nn.CrossEntropyLoss()
-    # criterion = nn.NLLLoss()
 
     # 枝刈り手法
     pruner = optuna.pruners.MedianPruner(
         n_startup_trials= 10,
-        n_warmup_steps= 0,
+        n_warmup_steps= 10,
         interval_steps= 1
     )
 
-    study = optuna.create_study(direction='minimize', pruner=pruner)
+    study = optuna.create_study(direction='maximize', pruner=pruner)
     study.optimize(objective, n_trials=100)

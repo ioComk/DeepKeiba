@@ -22,12 +22,11 @@ class TrainValDataset(Dataset):
         label = label.sort_values('着順').to_numpy().astype(np.float32)
 
         # 1~18位を0~17に
-        label = label[0:3, 1] - 1
-        # print(label.tolist())
-        # One-hot encoding
-        label_one_hot = np.identity(18)[label.astype(np.int8)].astype(np.float32)
+        label = label[0, 1] - 1
 
-        drop_col = ['着順', '馬番']
+        # One-hot encoding
+
+        drop_col = ['着順', '馬番', '人気']
         
         df_np = self.df[i].drop(drop_col, axis=1).to_numpy().astype(np.float32)
         input_vec = df_np.flatten()
